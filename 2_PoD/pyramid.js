@@ -1,71 +1,79 @@
 'use strict'
 
-const request = require('request')
-const baseUrl = 'https://jsonplaceholder.typicode.com'
+const request = require('request');
+const baseUrl = 'https://jsonplaceholder.typicode.com';
 
 module.exports = {
-  buildUser: function() {
-    return new Promise(resolve => {
-      this.getUser((err, user) => {
-        if (err) throw new Error(err)
-        this.getPosts((err, posts) => {
-          if (err) throw new Error(err)
-          user.posts = posts
-          this.getAlbums((err, albums) => {
-            if (err) throw new Error(err)
-            user.albums = albums
-            this.getTodos((err, todos) => {
-              if (err) throw new Error(err)
-              user.todos = todos
-              resolve(user)
+    buildUser: function () {
+        return new Promise((resolve, reject) => {
+            var user;
+            this.getUser().then((userObj) => {
+                user = userObj;
+                return this.getPosts();
+            }).then(posts => {
+                user.posts = posts;
+                return this.getAlbums();
+            }).then(albums => {
+                user.albums = albums;
+                return this.getTodos();
+            }).then(todos => {
+                user.todos = todos;
+            }).then(() => {
+                resolve(user)
+            }).catch(err => reject(err));
+        });
+    },
+    getUser: function () {
+        return new Promise((resolve, reject) => {
+            return getContent(`${baseUrl}/users/1`).then((user) => {
+                resolve(user)
+            }).catch((err) => {
+                reject(err)
             })
-          })
         })
-      })
-    })
-  },
+    },
+    getPosts: function () {
+        return new Promise((resolve, reject) => {
+            return getContent(`${baseUrl}/posts?userId=1`).then((posts) => {
+                resolve(posts)
+            }).catch((err) => {
+                reject(err)
+            })
+        });
+    },
+    getAlbums: function () {
+        return new Promise((resolve, reject) => {
+            return getContent(`${baseUrl}/albums?userId=1`).then((albums) => {
+                resolve(albums)
+            }).catch((err) => {
+                reject(err)
+            })
+        });
+    },
+    getTodos: function () {
+        return new Promise((resolve, reject) => {
+            getContent(`${baseUrl}/tdos?userId=1`).then((todos) => {
+                resolve(todos)
+            }).catch((err) => {
+                reject(err)
+            })
+        });
+    }
+};
 
-  getUser: function(cb) {
-    request({
-      url: `${baseUrl}/users/1`,
-      method: 'get',
-      json: true
-    }, function (err, response, user) {
-      if (err) cb(err)
-      cb(null, user)
+const getContent = function (url) {
+    return new Promise((resolve, reject) => {
+        const lib = url.startsWith('https') ? require('https') : require('http');
+        const request = lib.get(url, (response) => {
+            if (response.statusCode < 200 || response.statusCode > 299) {
+                reject(new Error('Failed to load url, status code: ' + response.statusCode));
+            }
+            const body = [];
+            response.on('data', (chunk) => body.push(chunk));
+            response.on('end', () => {
+                resolve(JSON.parse(body.join('')));
+            });
+        });
+        request.on('error', (err) => reject(err))
     })
-  },
-
-  getPosts: function(cb) {
-    request({
-      url: `${baseUrl}/posts?userId=1`,
-      method: 'get',
-      json: true
-    }, function (err, response, posts) {
-      if (err) cb(err)
-      cb(null, posts)
-    })
-  },
-
-  getAlbums: function(cb) {
-    request({
-      url: `${baseUrl}/albums?userId=1`,
-      method: 'get',
-      json: true
-    }, function (err, response, albums) {
-      if (err) cb(err)
-      cb(null, albums)
-    })
-  },
-
-  getTodos: function(cb) {
-    request({
-      url: `${baseUrl}/todos?userId=1`,
-      method: 'get',
-      json: true
-    }, function (err, response, todos) {
-      if (err) cb(err)
-      cb(null, todos)
-    })
-  }
-}
+};
